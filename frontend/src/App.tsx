@@ -54,6 +54,11 @@ type AuthUser = {
   role: string
 }
 
+type BeforeInstallPromptEvent = Event & {
+  prompt: () => Promise<void>
+  userChoice: Promise<{ outcome: 'accepted' | 'dismissed'; platform: string }>
+}
+
 const API_BASE = import.meta.env.VITE_API_URL || ''
 
 const TIME_SLOTS: string[] = []
@@ -1072,6 +1077,79 @@ function NewAppointmentPage({ token, onSaved }: { token: string; onSaved: () => 
   )
 }
 
+function InstallPrompt({ inApp }: { inApp: boolean }) {
+  const [deferredPrompt, setDeferredPrompt] = useState<BeforeInstallPromptEvent | null>(null)
+  const [dismissed, setDismissed] = useState(false)
+
+  const isStandalone =
+    window.matchMedia('(display-mode: standalone)').matches ||
+    (typeof navigator !== 'undefined' && 'standalone' in navigator && Boolean((navigator as Navigator & { standalone?: boolean }).standalone))
+
+  const ua = navigator.userAgent.toLowerCase()
+  const isIos = /iphone|ipad|ipod/.test(ua)
+  const isSafari = /safari/.test(ua) && !/crios|fxios|edgios/.test(ua)
+  const showIosHint = !isStandalone && isIos && isSafari && !deferredPrompt
+
+  useEffect(() => {
+    const onBeforeInstallPrompt = (event: Event) => {
+      event.preventDefault()
+      setDeferredPrompt(event as BeforeInstallPromptEvent)
+    }
+
+    const onAppInstalled = () => {
+      setDeferredPrompt(null)
+      setDismissed(true)
+    }
+
+    window.addEventListener('beforeinstallprompt', onBeforeInstallPrompt)
+    window.addEventListener('appinstalled', onAppInstalled)
+
+    return () => {
+      window.removeEventListener('beforeinstallprompt', onBeforeInstallPrompt)
+      window.removeEventListener('appinstalled', onAppInstalled)
+    }
+  }, [])
+
+  if (isStandalone || dismissed || (!deferredPrompt && !showIosHint)) {
+    return null
+  }
+
+  const className = inApp ? 'install-banner install-banner-in-app' : 'install-banner'
+
+  return (
+    <aside className={className} role="status" aria-live="polite">
+      <div className="install-banner-text">
+        <strong>Instala esta app</strong>
+        <p>
+          {showIosHint
+            ? 'En iPhone: toca Compartir y luego Agregar a pantalla de inicio.'
+            : 'Instala la app para abrirla rapido desde tu pantalla principal.'}
+        </p>
+      </div>
+      <div className="install-banner-actions">
+        {deferredPrompt ? (
+          <button
+            type="button"
+            className="install-btn"
+            onClick={() => {
+              void (async () => {
+                await deferredPrompt.prompt()
+                await deferredPrompt.userChoice
+                setDeferredPrompt(null)
+              })()
+            }}
+          >
+            Instalar
+          </button>
+        ) : null}
+        <button type="button" className="install-close" onClick={() => setDismissed(true)}>
+          Ahora no
+        </button>
+      </div>
+    </aside>
+  )
+}
+
 function App() {
   const [token, setToken] = useState(localStorage.getItem('agenda-token') || '')
   const [user, setUser] = useState<AuthUser | null>(null)
@@ -1101,38 +1179,46 @@ function App() {
   }
 
   if (!token || !user) {
-    return <LoginPage onLogin={handleLogin} />
+    return (
+      <>
+        <LoginPage onLogin={handleLogin} />
+        <InstallPrompt inApp={false} />
+      </>
+    )
   }
 
   return (
-    <div className="shell">
-      <div className="shell-body">
-        {page === 'agenda' ? (
-          <AgendaPage token={token} onLogout={handleLogout} />
-        ) : (
-          <NewAppointmentPage token={token} onSaved={() => setPage('agenda')} />
-        )}
-      </div>
+    <>
+      <div className="shell">
+        <div className="shell-body">
+          {page === 'agenda' ? (
+            <AgendaPage token={token} onLogout={handleLogout} />
+          ) : (
+            <NewAppointmentPage token={token} onSaved={() => setPage('agenda')} />
+          )}
+        </div>
 
-      <nav className="bottom-nav">
-        <button
-          type="button"
-          className={`nav-btn${page === 'agenda' ? ' nav-btn-active' : ''}`}
-          onClick={() => setPage('agenda')}
-        >
-          <span className="nav-icon">📅</span>
-          <span>Agenda</span>
-        </button>
-        <button
-          type="button"
-          className={`nav-btn${page === 'nueva' ? ' nav-btn-active' : ''}`}
-          onClick={() => setPage('nueva')}
-        >
-          <span className="nav-icon">✚</span>
-          <span>Nueva cita</span>
-        </button>
-      </nav>
-    </div>
+        <nav className="bottom-nav">
+          <button
+            type="button"
+            className={`nav-btn${page === 'agenda' ? ' nav-btn-active' : ''}`}
+            onClick={() => setPage('agenda')}
+          >
+            <span className="nav-icon">📅</span>
+            <span>Agenda</span>
+          </button>
+          <button
+            type="button"
+            className={`nav-btn${page === 'nueva' ? ' nav-btn-active' : ''}`}
+            onClick={() => setPage('nueva')}
+          >
+            <span className="nav-icon">✚</span>
+            <span>Nueva cita</span>
+          </button>
+        </nav>
+      </div>
+      <InstallPrompt inApp={true} />
+    </>
   )
 }
 
