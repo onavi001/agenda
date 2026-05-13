@@ -1,0 +1,39 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 760 760" width="760" height="760">
+  <rect width="760" height="760" fill="#f2f2f2"/>
+
+  <!-- MP monogram background -->
+  <text
+    x="380"
+    y="520"
+    font-family="Georgia, 'Times New Roman', serif"
+    font-size="480"
+    font-weight="400"
+    letter-spacing="-10"
+    fill="#d8d8d8"
+    opacity="0.7"
+    text-anchor="middle"
+  >MP</text>
+
+  <!-- María Paulina cursive -->
+  <text
+    x="380"
+    y="420"
+    font-family="'Dancing Script', 'Brush Script MT', cursive"
+    font-size="96"
+    fill="#1a1a1a"
+    text-anchor="middle"
+    font-style="italic"
+  >María Paulina</text>
+
+  <!-- tagline -->
+  <text
+    x="380"
+    y="475"
+    font-family="'Montserrat', 'Gill Sans', Arial, sans-serif"
+    font-size="18"
+    fill="#888888"
+    text-anchor="middle"
+    letter-spacing="3"
+    font-weight="400"
+  >LASHISTA ESPECIALISTA EN LIFTING DE PESTAÑAS</text>
+</svg>

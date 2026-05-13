@@ -1,0 +1,36 @@
+@import url('https://fonts.googleapis.com/css2?family=Fraunces:wght@400;600;700&family=Outfit:wght@400;500;600&display=swap');
+
+*, *::before, *::after { box-sizing: border-box; margin: 0; padding: 0; }
+
+:root {
+  --pink:       #f4b8c8;
+  --pink-light: #fce8ef;
+  --pink-mid:   #e89ab0;
+  --pink-dark:  #c9879d;
+  --rose-deep:  #a85070;
+  --white:      #ffffff;
+  --surface:    #fff9fb;
+  --border:     #f0d4dc;
+  --ink:        #3d2a31;
+  --ink-soft:   #8a6e75;
+  --ink-faint:  #bfadb2;
+  --danger:     #c04040;
+  --success:    #2d8a5e;
+  --radius:     14px;
+  --shadow:     0 2px 16px rgba(180, 80, 100, .10);
+  --nav-h:      64px;
+}
+
+html, body, #root {
+  height: 100%;
+  width: 100%;
+  max-width: 100%;
+  font-family: 'Outfit', sans-serif;
+  background: var(--surface);
+  color: var(--ink);
+  -webkit-font-smoothing: antialiased;
+}
+
+body {
+  overflow-x: hidden;
+}

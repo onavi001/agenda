@@ -1,0 +1,5 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 64 64" width="64" height="64">
+  <rect width="64" height="64" rx="8" fill="#f2f2f2"/>
+  <text x="3" y="52" font-family="Georgia,'Times New Roman',serif" font-size="50" font-weight="400" fill="#c0c0c0" letter-spacing="-2">MP</text>
+  <line x1="8" y1="58" x2="56" y2="58" stroke="#c9879d" stroke-width="2.5" stroke-linecap="round"/>
+</svg>
