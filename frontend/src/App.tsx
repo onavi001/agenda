@@ -118,14 +118,37 @@ const defaultForm = (): AppointmentInput => ({
 const buildUrl = (path: string) => `${API_BASE}${path}`
 const authH = (tok: string) => ({ Authorization: `Bearer ${tok}` })
 
+function EyeIcon() {
+  return (
+    <svg viewBox="0 0 24 24" aria-hidden="true" className="password-toggle-icon">
+      <path d="M2 12s3.6-6 10-6 10 6 10 6-3.6 6-10 6-10-6-10-6Z" />
+      <circle cx="12" cy="12" r="3" />
+    </svg>
+  )
+}
+
+function EyeOffIcon() {
+  return (
+    <svg viewBox="0 0 24 24" aria-hidden="true" className="password-toggle-icon">
+      <path d="M2 12s3.6-6 10-6c2.1 0 3.9.6 5.4 1.5" />
+      <path d="M22 12s-3.6 6-10 6c-2.1 0-3.9-.6-5.4-1.5" />
+      <path d="M4 4l16 16" />
+      <path d="M14.1 14.1A3 3 0 0 1 9.9 9.9" />
+    </svg>
+  )
+}
+
 function LoginPage({ onLogin }: { onLogin: (token: string, user: AuthUser) => void }) {
   const [mode, setMode] = useState<'login' | 'register' | 'recover'>('login')
   const [name, setName] = useState('')
   const [email, setEmail] = useState('')
   const [password, setPassword] = useState('')
+  const [showLoginPassword, setShowLoginPassword] = useState(false)
+  const [showRegisterPassword, setShowRegisterPassword] = useState(false)
   const [recoverEmail, setRecoverEmail] = useState('')
   const [recoverToken, setRecoverToken] = useState('')
   const [newPassword, setNewPassword] = useState('')
+  const [showResetPassword, setShowResetPassword] = useState(false)
   const [recoverStep, setRecoverStep] = useState<'request' | 'reset'>('request')
   const [recoverMessage, setRecoverMessage] = useState('')
   const [loading, setLoading] = useState(false)
@@ -277,7 +300,23 @@ function LoginPage({ onLogin }: { onLogin: (token: string, user: AuthUser) => vo
             </label>
             <label>
               Contrasena
-              <input type="password" value={password} onChange={e => setPassword(e.target.value)} required />
+              <div className="password-field">
+                <input
+                  type={showLoginPassword ? 'text' : 'password'}
+                  value={password}
+                  onChange={e => setPassword(e.target.value)}
+                  required
+                />
+                <button
+                  type="button"
+                  className="password-toggle"
+                  onClick={() => setShowLoginPassword(v => !v)}
+                  aria-label={showLoginPassword ? 'Ocultar contrasena' : 'Mostrar contrasena'}
+                >
+                  {showLoginPassword ? <EyeOffIcon /> : <EyeIcon />}
+                  <span className="sr-only">{showLoginPassword ? 'Ocultar contrasena' : 'Mostrar contrasena'}</span>
+                </button>
+              </div>
             </label>
             <button type="submit" className="btn-primary" disabled={loading}>
               {loading ? 'Entrando...' : 'Entrar'}
@@ -297,7 +336,24 @@ function LoginPage({ onLogin }: { onLogin: (token: string, user: AuthUser) => vo
             </label>
             <label>
               Contrasena
-              <input type="password" value={password} onChange={e => setPassword(e.target.value)} required minLength={6} />
+              <div className="password-field">
+                <input
+                  type={showRegisterPassword ? 'text' : 'password'}
+                  value={password}
+                  onChange={e => setPassword(e.target.value)}
+                  required
+                  minLength={6}
+                />
+                <button
+                  type="button"
+                  className="password-toggle"
+                  onClick={() => setShowRegisterPassword(v => !v)}
+                  aria-label={showRegisterPassword ? 'Ocultar contrasena' : 'Mostrar contrasena'}
+                >
+                  {showRegisterPassword ? <EyeOffIcon /> : <EyeIcon />}
+                  <span className="sr-only">{showRegisterPassword ? 'Ocultar contrasena' : 'Mostrar contrasena'}</span>
+                </button>
+              </div>
             </label>
             <button type="submit" className="btn-primary" disabled={loading}>
               {loading ? 'Creando...' : 'Crear cuenta'}
@@ -336,13 +392,24 @@ function LoginPage({ onLogin }: { onLogin: (token: string, user: AuthUser) => vo
                 </label>
                 <label>
                   Nueva contrasena
-                  <input
-                    type="password"
-                    value={newPassword}
-                    onChange={e => setNewPassword(e.target.value)}
-                    required
-                    minLength={6}
-                  />
+                  <div className="password-field">
+                    <input
+                      type={showResetPassword ? 'text' : 'password'}
+                      value={newPassword}
+                      onChange={e => setNewPassword(e.target.value)}
+                      required
+                      minLength={6}
+                    />
+                    <button
+                      type="button"
+                      className="password-toggle"
+                      onClick={() => setShowResetPassword(v => !v)}
+                      aria-label={showResetPassword ? 'Ocultar contrasena' : 'Mostrar contrasena'}
+                    >
+                      {showResetPassword ? <EyeOffIcon /> : <EyeIcon />}
+                      <span className="sr-only">{showResetPassword ? 'Ocultar contrasena' : 'Mostrar contrasena'}</span>
+                    </button>
+                  </div>
                 </label>
                 <button type="submit" className="btn-primary" disabled={loading}>
                   {loading ? 'Restableciendo...' : 'Restablecer contrasena'}

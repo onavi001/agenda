@@ -149,6 +149,48 @@ input:focus, select:focus, textarea:focus {
   border-color: var(--pink-dark);
 }
 
+.password-field {
+  position: relative;
+}
+
+.password-field input {
+  padding-right: 56px;
+}
+
+.password-toggle {
+  position: absolute;
+  right: 8px;
+  top: 50%;
+  transform: translateY(-50%);
+  border: 1px solid var(--border);
+  border-radius: 8px;
+  background: #fff;
+  color: var(--ink-soft);
+  font-family: inherit;
+  width: 36px;
+  height: 30px;
+  padding: 0;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  cursor: pointer;
+}
+
+.password-toggle:hover {
+  border-color: var(--pink-mid);
+  color: var(--rose-deep);
+}
+
+.password-toggle-icon {
+  width: 18px;
+  height: 18px;
+  stroke: currentColor;
+  fill: none;
+  stroke-width: 1.8;
+  stroke-linecap: round;
+  stroke-linejoin: round;
+}
+
 textarea { resize: vertical; }
 
 .input-color {
