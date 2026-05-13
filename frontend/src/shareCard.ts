@@ -30,38 +30,88 @@ function fmtDate(dateStr: string): string {
   return str.charAt(0).toUpperCase() + str.slice(1)
 }
 
+function drawRoundedRect(
+  ctx: CanvasRenderingContext2D,
+  x: number,
+  y: number,
+  w: number,
+  h: number,
+  r: number,
+) {
+  const rr = Math.min(r, w / 2, h / 2)
+  ctx.beginPath()
+  ctx.moveTo(x + rr, y)
+  ctx.lineTo(x + w - rr, y)
+  ctx.quadraticCurveTo(x + w, y, x + w, y + rr)
+  ctx.lineTo(x + w, y + h - rr)
+  ctx.quadraticCurveTo(x + w, y + h, x + w - rr, y + h)
+  ctx.lineTo(x + rr, y + h)
+  ctx.quadraticCurveTo(x, y + h, x, y + h - rr)
+  ctx.lineTo(x, y + rr)
+  ctx.quadraticCurveTo(x, y, x + rr, y)
+  ctx.closePath()
+}
+
 function truncate(ctx: CanvasRenderingContext2D, text: string, maxW: number): string {
   if (ctx.measureText(text).width <= maxW) return text
-  let t = text
-  while (t.length > 0 && ctx.measureText(t + '…').width > maxW) {
+  let t = text.trim()
+  while (t.length > 0 && ctx.measureText(`${t}...`).width > maxW) {
     t = t.slice(0, -1)
   }
-  return t + '…'
+  return `${t}...`
+}
+
+function drawWrapped(
+  ctx: CanvasRenderingContext2D,
+  text: string,
+  x: number,
+  y: number,
+  maxW: number,
+  lineH: number,
+  maxLines = 10,
+): number {
+  const words = text.trim().split(/\s+/)
+  let line = ''
+  let lines = 0
+  let curY = y
+
+  for (const word of words) {
+    const candidate = line ? `${line} ${word}` : word
+    if (ctx.measureText(candidate).width > maxW && line) {
+      lines += 1
+      if (lines === maxLines) {
+        ctx.fillText(truncate(ctx, line, maxW), x, curY)
+        return curY
+      }
+      ctx.fillText(line, x, curY)
+      line = word
+      curY += lineH
+    } else {
+      line = candidate
+    }
+  }
+
+  if (line) {
+    lines += 1
+    if (lines > maxLines) {
+      ctx.fillText(truncate(ctx, line, maxW), x, curY)
+      return curY
+    }
+    ctx.fillText(line, x, curY)
+  }
+
+  return curY
 }
 
 export async function generateShareImage(apt: ShareApt): Promise<Blob> {
   await document.fonts.ready
 
-  const W = 800
+  const W = 1080
+  const H = 1350
   const DPR = 2
   const PINK = '#c9879d'
-
-  type Row = { label: string; value: string }
-
-  const rows: Row[] = [
-    { label: 'FECHA', value: fmtDate(apt.date) },
-    { label: 'HORA', value: fmt12(apt.time) },
-    { label: 'CLIENTE', value: apt.client + (apt.phone ? `  ·  ${apt.phone}` : '') },
-    { label: 'SERVICIO', value: `${apt.service}  ·  ${apt.duration} min` },
-    { label: 'VALOR', value: `$${apt.price}` },
-  ]
-  if (apt.notes) rows.push({ label: 'NOTAS', value: apt.notes })
-
-  const HEADER_H = 220
-  const ROW_H = 78
-  const POLICIES_H = 270
-  const FOOTER_H = 90
-  const H = HEADER_H + rows.length * ROW_H + POLICIES_H + FOOTER_H
+  const DARK = '#2b1f26'
+  const SOFT = '#7f6c74'
 
   const canvas = document.createElement('canvas')
   canvas.width = W * DPR
@@ -69,163 +119,173 @@ export async function generateShareImage(apt: ShareApt): Promise<Blob> {
   const ctx = canvas.getContext('2d')!
   ctx.scale(DPR, DPR)
 
-  // ── Background ──────────────────────────────────────────────
-  const bg = ctx.createLinearGradient(0, 0, 0, H)
-  bg.addColorStop(0, '#fef9fb')
-  bg.addColorStop(1, '#f5f1ee')
+  const bg = ctx.createLinearGradient(0, 0, W, H)
+  bg.addColorStop(0, '#fff8fb')
+  bg.addColorStop(1, '#f3ece8')
   ctx.fillStyle = bg
   ctx.fillRect(0, 0, W, H)
 
-  // ── MP watermark ─────────────────────────────────────────────
+  const orbA = ctx.createRadialGradient(190, 220, 0, 190, 220, 340)
+  orbA.addColorStop(0, 'rgba(201, 135, 157, 0.25)')
+  orbA.addColorStop(1, 'rgba(201, 135, 157, 0)')
+  ctx.fillStyle = orbA
+  ctx.fillRect(0, 0, W, H)
+
+  const orbB = ctx.createRadialGradient(920, 1120, 0, 920, 1120, 360)
+  orbB.addColorStop(0, 'rgba(92, 67, 82, 0.12)')
+  orbB.addColorStop(1, 'rgba(92, 67, 82, 0)')
+  ctx.fillStyle = orbB
+  ctx.fillRect(0, 0, W, H)
+
+  const cardX = 74
+  const cardY = 56
+  const cardW = W - cardX * 2
+  const cardH = H - cardY * 2
+
   ctx.save()
-  ctx.font = '500px Georgia, serif'
-  ctx.fillStyle = 'rgba(201,135,157,0.07)'
-  ctx.textAlign = 'center'
-  ctx.textBaseline = 'middle'
-  ctx.fillText('MP', W / 2, H / 2 - 20)
+  ctx.shadowColor = 'rgba(67, 38, 56, 0.16)'
+  ctx.shadowBlur = 30
+  ctx.shadowOffsetY = 14
+  drawRoundedRect(ctx, cardX, cardY, cardW, cardH, 34)
+  ctx.fillStyle = 'rgba(255,255,255,0.92)'
+  ctx.fill()
   ctx.restore()
 
-  // ── Top pink bar ─────────────────────────────────────────────
-  ctx.fillStyle = PINK
-  ctx.fillRect(0, 0, W, 10)
+  const headerH = 250
+  const headerGrad = ctx.createLinearGradient(cardX, cardY, cardX + cardW, cardY + headerH)
+  headerGrad.addColorStop(0, '#f6e3ea')
+  headerGrad.addColorStop(1, '#f2d6df')
+  drawRoundedRect(ctx, cardX, cardY, cardW, headerH, 34)
+  ctx.fillStyle = headerGrad
+  ctx.fill()
 
-  // ── "María Paulina" ──────────────────────────────────────────
-  ctx.font = '700 74px "Dancing Script", cursive'
-  ctx.fillStyle = '#1a1a1a'
+  ctx.fillStyle = '#ffffff'
+  ctx.fillRect(cardX, cardY + headerH - 24, cardW, 24)
+
+  ctx.save()
+  ctx.font = '700 220px Georgia, serif'
+  ctx.fillStyle = 'rgba(255,255,255,0.25)'
   ctx.textAlign = 'center'
-  ctx.textBaseline = 'alphabetic'
-  ctx.fillText('María Paulina', W / 2, 102)
+  ctx.textBaseline = 'middle'
+  ctx.fillText('MP', W / 2, cardY + 112)
+  ctx.restore()
 
-  // ── Tagline ──────────────────────────────────────────────────
-  ctx.font = '300 14px "Montserrat", sans-serif'
-  ctx.fillStyle = '#b0a0a8'
-  ctx.fillText('LASHISTA ESPECIALISTA EN LIFTING DE PESTAÑAS', W / 2, 132)
+  ctx.font = '700 84px "Dancing Script", cursive'
+  ctx.fillStyle = DARK
+  ctx.textAlign = 'center'
+  ctx.fillText('Maria Paulina', W / 2, cardY + 110)
 
-  // ── Divider ──────────────────────────────────────────────────
-  ctx.strokeStyle = PINK
-  ctx.lineWidth = 1.5
-  ctx.beginPath()
-  ctx.moveTo(60, 158)
-  ctx.lineTo(W - 60, 158)
-  ctx.stroke()
+  ctx.font = '600 18px "Montserrat", sans-serif'
+  ctx.fillStyle = '#846a75'
+  ctx.fillText('Agenda de cita', W / 2, cardY + 154)
 
-  // ── "DETALLES DE CITA" label ─────────────────────────────────
-  ctx.font = '600 11px "Montserrat", sans-serif'
+  drawRoundedRect(ctx, W / 2 - 180, cardY + 176, 360, 44, 22)
+  ctx.fillStyle = 'rgba(255,255,255,0.72)'
+  ctx.fill()
+  ctx.font = '700 16px "Montserrat", sans-serif'
   ctx.fillStyle = PINK
   ctx.textAlign = 'center'
-  ctx.fillText('DETALLES DE CITA', W / 2, 190)
+  ctx.fillText('CONFIRMACION DE CITA', W / 2, cardY + 204)
 
-  // ── Rows ─────────────────────────────────────────────────────
-  const VALUE_MAX_W = 640
+  const left = cardX + 56
+  const right = cardX + cardW - 56
+  let y = cardY + headerH + 30
 
-  rows.forEach((row, i) => {
-    const y = HEADER_H + i * ROW_H
+  const addRow = (label: string, value: string, wrap = false) => {
+    ctx.font = '700 14px "Montserrat", sans-serif'
+    ctx.fillStyle = '#b18e9d'
+    ctx.textAlign = 'left'
+    ctx.fillText(label, left, y)
 
-    // Alternate row tint
-    if (i % 2 === 0) {
-      ctx.fillStyle = 'rgba(255,255,255,0.55)'
-      ctx.fillRect(40, y + 2, W - 80, ROW_H - 4)
+    ctx.font = '600 33px "Montserrat", sans-serif'
+    ctx.fillStyle = DARK
+    if (wrap) {
+      y = drawWrapped(ctx, value, left, y + 42, right - left, 38, 2) + 28
+    } else {
+      ctx.fillText(truncate(ctx, value, right - left), left, y + 42)
+      y += 70
     }
 
-    // Label
-    ctx.font = '500 11px "Montserrat", sans-serif'
-    ctx.fillStyle = '#c0afb7'
-    ctx.textAlign = 'left'
-    ctx.fillText(row.label, 64, y + 22)
+    ctx.strokeStyle = '#eadde3'
+    ctx.lineWidth = 1
+    ctx.beginPath()
+    ctx.moveTo(left, y)
+    ctx.lineTo(right, y)
+    ctx.stroke()
+    y += 26
+  }
 
-    // Value
-    ctx.font = '500 20px "Montserrat", sans-serif'
-    ctx.fillStyle = '#2a2026'
-    ctx.textAlign = 'left'
-    const val = truncate(ctx, row.value, VALUE_MAX_W)
-    ctx.fillText(val, 64, y + 52)
-  })
+  addRow('CLIENTE', apt.client, true)
+  addRow('SERVICIO', `${apt.service} · ${apt.duration} min`, true)
+  addRow('FECHA', fmtDate(apt.date), true)
+  addRow('HORA', fmt12(apt.time))
+  if (apt.phone.trim()) {
+    addRow('CONTACTO', apt.phone.trim())
+  }
+  addRow('VALOR', `$${apt.price}`)
 
-  // ── Bottom divider ────────────────────────────────────────────
-  const rowsEndY = HEADER_H + rows.length * ROW_H
+  if (apt.notes.trim()) {
+    const notesH = 136
+    drawRoundedRect(ctx, left, y, right - left, notesH, 20)
+    ctx.fillStyle = '#f8f3f5'
+    ctx.fill()
 
-  // ── Divider before policies ───────────────────────────────────
-  ctx.strokeStyle = '#e0d0d8'
-  ctx.lineWidth = 1
-  ctx.beginPath()
-  ctx.moveTo(40, rowsEndY + 16)
-  ctx.lineTo(W - 40, rowsEndY + 16)
-  ctx.stroke()
+    ctx.font = '700 14px "Montserrat", sans-serif'
+    ctx.fillStyle = '#b18e9d'
+    ctx.fillText('NOTAS', left + 20, y + 30)
 
-  // ── IMPORTANTE header ─────────────────────────────────────────
-  let py = rowsEndY + 48
-  ctx.font = '700 12px "Montserrat", sans-serif'
+    ctx.font = '500 21px "Montserrat", sans-serif'
+    ctx.fillStyle = SOFT
+    drawWrapped(ctx, apt.notes.trim(), left + 20, y + 64, right - left - 40, 30, 3)
+    y += notesH + 22
+  }
+
+  const polH = 220
+  drawRoundedRect(ctx, left, y, right - left, polH, 22)
+  ctx.fillStyle = '#f6ecf1'
+  ctx.fill()
+
+  ctx.font = '700 16px "Montserrat", sans-serif'
   ctx.fillStyle = PINK
-  ctx.textAlign = 'center'
-  ctx.fillText('IMPORTANTE', W / 2, py)
+  ctx.textAlign = 'left'
+  ctx.fillText('IMPORTANTE', left + 20, y + 32)
 
-  // ── Policy helper ─────────────────────────────────────────────
-  type Policy = { title: string; body: string }
-  const policies: Policy[] = [
-    {
-      title: 'TIEMPO DE TOLERANCIA',
-      body: 'Solo 10 min de tolerancia. Después tu cita se cancela automáticamente y se pierde el anticipo.',
-    },
-    {
-      title: 'CANCELAR / REAGENDAR',
-      body: 'Mínimo 24 hrs antes. Anticipo no rembolsable.',
-    },
-    {
-      title: 'DEPÓSITO DE ANTICIPO',
-      body: 'Da tu anticipo mín 24 hrs antes para no perder tu espacio. Si tu cita no se confirmó, no está agendada.',
-    },
+  ctx.font = '500 18px "Montserrat", sans-serif'
+  ctx.fillStyle = SOFT
+  const policies = [
+    'Tolerancia maxima de 10 min.',
+    'Para reagendar o cancelar, avisar con 24 horas.',
+    'Anticipo no reembolsable en cancelacion tardia.',
   ]
 
-  const POLICY_INNER_W = W - 120
-
-  function wrapText(text: string, maxW: number, lineH: number, startY: number): number {
-    const words = text.split(' ')
-    let line = ''
-    let y = startY
-    for (const word of words) {
-      const test = line ? line + ' ' + word : word
-      if (ctx.measureText(test).width > maxW && line) {
-        ctx.fillText(line, W / 2, y)
-        line = word
-        y += lineH
-      } else {
-        line = test
-      }
-    }
-    if (line) ctx.fillText(line, W / 2, y)
-    return y
+  let py = y + 70
+  for (const line of policies) {
+    ctx.fillStyle = PINK
+    ctx.fillText('•', left + 22, py)
+    ctx.fillStyle = SOFT
+    ctx.fillText(line, left + 44, py)
+    py += 42
   }
 
-  py += 18
-  for (const policy of policies) {
-    // Title
-    ctx.font = '600 12px "Montserrat", sans-serif'
-    ctx.fillStyle = '#2a2026'
-    ctx.textAlign = 'center'
-    py += 18
-    ctx.fillText(policy.title, W / 2, py)
-    // Body
-    ctx.font = '300 12px "Montserrat", sans-serif'
-    ctx.fillStyle = '#7a6a72'
-    py += 18
-    py = wrapText(policy.body, POLICY_INNER_W, 17, py)
-    py += 6
-  }
-
-  // ── Bottom divider ────────────────────────────────────────────
-  const botY = H - FOOTER_H + 16
-  ctx.strokeStyle = '#e0d0d8'
-  ctx.lineWidth = 1
+  const footerY = cardY + cardH - 36
+  ctx.strokeStyle = '#eadde3'
   ctx.beginPath()
-  ctx.moveTo(60, botY)
-  ctx.lineTo(W - 60, botY)
+  ctx.moveTo(left, footerY - 42)
+  ctx.lineTo(right, footerY - 42)
   ctx.stroke()
 
-  // ── Bottom signature ─────────────────────────────────────────
-  ctx.font = '400 26px "Dancing Script", cursive'
+  ctx.font = '500 42px "Dancing Script", cursive'
   ctx.fillStyle = PINK
   ctx.textAlign = 'center'
-  ctx.fillText('María Paulina', W / 2, botY + 48)
+  ctx.fillText('Maria Paulina', W / 2, footerY)
 
-  return new Promise(resolve => canvas.toBlob(b => resolve(b!), 'image/png'))
+  return new Promise((resolve, reject) => {
+    canvas.toBlob(blob => {
+      if (blob) {
+        resolve(blob)
+      } else {
+        reject(new Error('No se pudo generar la imagen'))
+      }
+    }, 'image/png')
+  })
 }
