@@ -80,6 +80,20 @@ const appointmentSchema = z.object({
   afterPhoto: z.string().optional().default(''),
 })
 
+const appointmentUpdateSchema = z.object({
+  client: z.string().trim().min(2),
+  phone: z.string().trim().optional().default(''),
+  service: z.string().trim().min(2),
+  artist: z.string().trim().optional().default(''),
+  date: z.string().regex(/^\d{4}-\d{2}-\d{2}$/),
+  time: z.string().regex(/^\d{2}:\d{2}$/),
+  duration: z.number().int().min(15).max(300),
+  price: z.number().int().min(0).default(0),
+  status: z.enum(statusValues).optional().default('Pendiente'),
+  color: z.string().regex(/^#[0-9a-fA-F]{6}$/).optional().default('#c9879d'),
+  notes: z.string().optional().default(''),
+})
+
 const statusSchema = z.object({
   status: z.enum(statusValues),
 })
@@ -608,6 +622,86 @@ app.post(
     }
   },
 )
+
+app.patch('/api/appointments/:id', requireAuth, async (req, res) => {
+  const id = Number(req.params.id)
+  if (!Number.isInteger(id) || id <= 0) {
+    return res.status(400).json({ error: 'Id invalido' })
+  }
+
+  const userId = Number(req.user?.userId)
+  if (!Number.isInteger(userId) || userId <= 0) {
+    return res.status(401).json({ error: 'Sesion invalida o expirada' })
+  }
+
+  const payloadRaw = {
+    client: req.body.client,
+    phone: req.body.phone,
+    service: req.body.service,
+    artist: req.body.artist,
+    date: req.body.date,
+    time: req.body.time,
+    duration: Number(req.body.duration),
+    price: Number(req.body.price || 0),
+    status: req.body.status,
+    color: req.body.color,
+    notes: req.body.notes,
+  }
+
+  const parsed = appointmentUpdateSchema.safeParse(payloadRaw)
+  if (!parsed.success) {
+    return res.status(400).json({
+      error: 'Datos invalidos para actualizar la cita',
+      details: parsed.error.flatten(),
+    })
+  }
+
+  try {
+    const payload = parsed.data
+    const updated = await pool.query(
+      `
+        UPDATE appointments
+        SET client = $1,
+            phone = $2,
+            service = $3,
+            artist = $4,
+            date = $5,
+            time = $6,
+            duration = $7,
+            price = $8,
+            status = $9,
+            color = $10,
+            notes = $11
+        WHERE id = $12
+          AND user_id = $13
+        RETURNING id, client, phone, service, artist, date::text AS date, time, duration, price, status, color, notes, before_photo, after_photo, created_at
+      `,
+      [
+        payload.client,
+        payload.phone,
+        payload.service,
+        payload.artist,
+        payload.date,
+        payload.time,
+        payload.duration,
+        payload.price,
+        payload.status,
+        payload.color,
+        payload.notes,
+        id,
+        userId,
+      ],
+    )
+
+    if (!updated.rowCount) {
+      return res.status(404).json({ error: 'Cita no encontrada' })
+    }
+
+    return res.json(mapAppointment(updated.rows[0]))
+  } catch {
+    return res.status(500).json({ error: 'No se pudo actualizar la cita' })
+  }
+})
 
 app.patch(
   '/api/appointments/:id/photos',

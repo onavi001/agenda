@@ -444,6 +444,21 @@ function AgendaPage({ token, onLogout }: { token: string; onLogout: () => void }
   const [uploadBefore, setUploadBefore] = useState<File | null>(null)
   const [uploadAfter, setUploadAfter] = useState<File | null>(null)
   const [uploading, setUploading] = useState(false)
+  const [editingId, setEditingId] = useState<number | null>(null)
+  const [savingEdit, setSavingEdit] = useState(false)
+  const [editDraft, setEditDraft] = useState<{
+    client: string
+    phone: string
+    service: string
+    artist: string
+    date: string
+    time: string
+    duration: number
+    price: number
+    status: AppointmentStatus
+    color: string
+    notes: string
+  } | null>(null)
   const [sharing, setSharing] = useState(false)
   const [sharePanel, setSharePanel] = useState<{
     appointmentId: number
@@ -526,6 +541,47 @@ function AgendaPage({ token, onLogout }: { token: string; onLogout: () => void }
       body: JSON.stringify({ status: 'Completada' }),
     })
     void load()
+  }
+
+  const startEdit = (apt: Appointment) => {
+    setEditingId(apt.id)
+    setEditDraft({
+      client: apt.client,
+      phone: apt.phone,
+      service: apt.service,
+      artist: apt.artist,
+      date: apt.date,
+      time: apt.time,
+      duration: apt.duration,
+      price: apt.price,
+      status: apt.status,
+      color: apt.color,
+      notes: apt.notes,
+    })
+  }
+
+  const cancelEdit = () => {
+    setEditingId(null)
+    setEditDraft(null)
+  }
+
+  const saveEdit = async (id: number) => {
+    if (!editDraft) return
+    try {
+      setSavingEdit(true)
+      const res = await fetch(buildUrl(`/api/appointments/${id}`), {
+        method: 'PATCH',
+        headers: { ...authH(token), 'Content-Type': 'application/json' },
+        body: JSON.stringify(editDraft),
+      })
+      if (!res.ok) throw new Error('No se pudo actualizar la cita')
+      cancelEdit()
+      void load()
+    } catch (err) {
+      setError(err instanceof Error ? err.message : 'Error al actualizar la cita')
+    } finally {
+      setSavingEdit(false)
+    }
   }
 
   const remove = async (id: number) => {
@@ -626,23 +682,143 @@ function AgendaPage({ token, onLogout }: { token: string; onLogout: () => void }
 
   const renderAppointmentDetail = (apt: Appointment) => (
     <div className="detail-box">
-      <p>
-        <strong>Cliente:</strong> {apt.client}
-        {apt.phone ? ` · ${apt.phone}` : ''}
-      </p>
-      <p>
-        <strong>Servicio:</strong> {apt.service} · {apt.duration} min
-      </p>
-      {apt.artist && (
-        <p>
-          <strong>Artista:</strong> {apt.artist}
-        </p>
+      {editingId === apt.id && editDraft ? (
+        <div className="edit-grid" onClick={e => e.stopPropagation()}>
+          <label>
+            Cliente
+            <input
+              type="text"
+              value={editDraft.client}
+              onChange={e => setEditDraft(c => (c ? { ...c, client: e.target.value } : c))}
+            />
+          </label>
+          <label>
+            Telefono
+            <input
+              type="tel"
+              value={editDraft.phone}
+              onChange={e => setEditDraft(c => (c ? { ...c, phone: e.target.value } : c))}
+            />
+          </label>
+          <label>
+            Servicio
+            <input
+              type="text"
+              value={editDraft.service}
+              onChange={e => setEditDraft(c => (c ? { ...c, service: e.target.value } : c))}
+            />
+          </label>
+          <label>
+            Artista
+            <input
+              type="text"
+              value={editDraft.artist}
+              onChange={e => setEditDraft(c => (c ? { ...c, artist: e.target.value } : c))}
+            />
+          </label>
+          <label>
+            Fecha
+            <input
+              type="date"
+              value={editDraft.date}
+              onChange={e => setEditDraft(c => (c ? { ...c, date: e.target.value } : c))}
+            />
+          </label>
+          <label>
+            Hora
+            <input
+              type="time"
+              value={editDraft.time}
+              onChange={e => setEditDraft(c => (c ? { ...c, time: e.target.value } : c))}
+            />
+          </label>
+          <label>
+            Duracion (min)
+            <input
+              type="number"
+              min={15}
+              max={300}
+              step={15}
+              value={editDraft.duration}
+              onChange={e => setEditDraft(c => (c ? { ...c, duration: Number(e.target.value) } : c))}
+            />
+          </label>
+          <label>
+            Precio
+            <input
+              type="number"
+              min={0}
+              value={editDraft.price}
+              onChange={e => setEditDraft(c => (c ? { ...c, price: Number(e.target.value) } : c))}
+            />
+          </label>
+          <label>
+            Estado
+            <select
+              value={editDraft.status}
+              onChange={e => setEditDraft(c => (c ? { ...c, status: e.target.value as AppointmentStatus } : c))}
+            >
+              <option value="Pendiente">Pendiente</option>
+              <option value="Confirmada">Confirmada</option>
+              <option value="Completada">Completada</option>
+              <option value="Cancelada">Cancelada</option>
+            </select>
+          </label>
+          <label className="edit-grid-full">
+            Notas
+            <textarea
+              rows={3}
+              value={editDraft.notes}
+              onChange={e => setEditDraft(c => (c ? { ...c, notes: e.target.value } : c))}
+            />
+          </label>
+          <div className="detail-actions">
+            <button
+              type="button"
+              className="btn-share"
+              disabled={savingEdit}
+              onClick={e => {
+                e.stopPropagation()
+                void saveEdit(apt.id)
+              }}
+            >
+              {savingEdit ? 'Guardando...' : 'Guardar cambios'}
+            </button>
+            <button
+              type="button"
+              className="btn-delete"
+              onClick={e => {
+                e.stopPropagation()
+                cancelEdit()
+              }}
+            >
+              Cancelar
+            </button>
+          </div>
+        </div>
+      ) : (
+        <>
+          <p>
+            <strong>Cliente:</strong> {apt.client}
+            {apt.phone ? ` · ${apt.phone}` : ''}
+          </p>
+          <p>
+            <strong>Servicio:</strong> {apt.service} · {apt.duration} min
+          </p>
+          {apt.artist && (
+            <p>
+              <strong>Artista:</strong> {apt.artist}
+            </p>
+          )}
+          {apt.notes && (
+            <p>
+              <strong>Notas:</strong> {apt.notes}
+            </p>
+          )}
+        </>
       )}
-      {apt.notes && (
-        <p>
-          <strong>Notas:</strong> {apt.notes}
-        </p>
-      )}
+      {editingId !== apt.id ? (
+      <>
       <div className="photo-grid">
         {apt.beforePhotoUrl ? (
           <a
@@ -709,6 +885,16 @@ function AgendaPage({ token, onLogout }: { token: string; onLogout: () => void }
         </button>
       )}
       <div className="detail-actions">
+        <button
+          type="button"
+          className="btn-share-option"
+          onClick={e => {
+            e.stopPropagation()
+            startEdit(apt)
+          }}
+        >
+          Editar
+        </button>
         <button
           type="button"
           className="btn-share"
@@ -798,6 +984,8 @@ function AgendaPage({ token, onLogout }: { token: string; onLogout: () => void }
           </button>
         </div>
       ) : null}
+      </>
+      ) : null}
     </div>
   )
 
@@ -878,6 +1066,9 @@ function AgendaPage({ token, onLogout }: { token: string; onLogout: () => void }
                     onClick={() => {
                         if (!apt) return
                         setExpanded(isExp ? null : apt.id)
+                        if (isExp) {
+                          cancelEdit()
+                        }
                         setUploadBefore(null)
                         setUploadAfter(null)
                       }}
@@ -943,6 +1134,9 @@ function AgendaPage({ token, onLogout }: { token: string; onLogout: () => void }
                 onClick={() => {
                   if (!apt || !isStart) return
                   setExpanded(isExp ? null : apt.id)
+                  if (isExp) {
+                    cancelEdit()
+                  }
                   setUploadBefore(null)
                   setUploadAfter(null)
                 }}

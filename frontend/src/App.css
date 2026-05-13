@@ -648,6 +648,16 @@ textarea { resize: vertical; }
   gap: 6px;
 }
 
+.edit-grid {
+  display: grid;
+  grid-template-columns: 1fr 1fr;
+  gap: 8px 10px;
+}
+
+.edit-grid-full {
+  grid-column: 1 / -1;
+}
+
 .detail-box p { font-size: .88rem; color: var(--ink); }
 
 .detail-actions {
@@ -888,6 +898,10 @@ textarea { resize: vertical; }
 
   .detail-actions {
     flex-direction: column;
+  }
+
+  .edit-grid {
+    grid-template-columns: 1fr;
   }
 }
 
